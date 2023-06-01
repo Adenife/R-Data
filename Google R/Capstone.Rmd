@@ -1,0 +1,282 @@
+---
+title: "How Does a Bike-Share Navigate Speedy Success?"
+author: "Oluwanifemi Aweda"
+date: '2022-07-05'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(ggplot2) 
+```
+
+## Introduction.
+
+The analysis in this notebook was done to fulfill the requirements for getting the google data analytics certification hosted on coursera.
+The case study involves a bikeshare company's data of its customer's trip details over a 12 month period (June 2021 - May 2022). The [data](https://divvy-tripdata.s3.amazonaws.com/index.html) has been made available by Motivate International Inc. under this [license](https://ride.divvybikes.com/data-license-agreement).\
+
+The analysis follows the 6 phases of the Data Analysis process as a guideline which includes the; Ask, Prepare, Process, Analyze, and Act phases.\
+
+
+### The Ask Phase
+I was tasked with the director of marketing to find the differentiating factor between casual riders and annual members with the aim of converting casual riders into annual members.\
+
+**Stakeholders**\
+- The marketing director.
+- The executive team.
+- Fellow data analysts.
+- Casual riders.\
+
+**Deliverable**
+- Identify the differentiating factor between casual riders and annual members.
+- Provide effective visuals and relevant data to support insights gotten.
+
+
+### The Prepare Phase
+The data used in the analysis is a secondary data obtained from [here](https://divvy-tripdata.s3.amazonaws.com/index.html). The dataset is a publicly available one that holds the records of different users of Cyclistic. The data has been made available by Motivate International Inc. under this [license](https://ride.divvybikes.com/data-license-agreement). The data gotten includes 12 months of data (202106-divvy-tripdata to 202205-divvy-tripdata). The data has 13 features (columns) with multiple entries (rows) for each ride taken.\
+
+**The following were done during the prepare stage**
+- Downloading of the data.
+- Extraction of data.
+- Combining data into the same folder structure.
+- The consistency of the data was checked across all files (through the column names).
+- The data type consistency across all files was also checked (data structure).
+
+**Import the data set**
+```{r import data}
+tripdata_202106 <- read.csv("202106-divvy-tripdata.csv")
+tripdata_202107 <- read.csv("202107-divvy-tripdata.csv")
+tripdata_202108 <- read.csv("202108-divvy-tripdata.csv")
+tripdata_202109 <- read.csv("202109-divvy-tripdata.csv")
+tripdata_202110 <- read.csv("202110-divvy-tripdata.csv")
+tripdata_202111 <- read.csv("202111-divvy-tripdata.csv")
+tripdata_202112 <- read.csv("202112-divvy-tripdata.csv")
+tripdata_202201 <- read.csv("202201-divvy-tripdata.csv")
+tripdata_202202 <- read.csv("202202-divvy-tripdata.csv")
+tripdata_202203 <- read.csv("202203-divvy-tripdata.csv")
+tripdata_202204 <- read.csv("202204-divvy-tripdata.csv")
+tripdata_202205 <- read.csv("202205-divvy-tripdata.csv")
+```
+
+**Check the column names to know if the follow same pattern**
+```{r check column names}
+colnames(tripdata_202106)
+colnames(tripdata_202107)
+colnames(tripdata_202108)
+colnames(tripdata_202109)
+colnames(tripdata_202110)
+colnames(tripdata_202111)
+colnames(tripdata_202112)
+colnames(tripdata_202201)
+colnames(tripdata_202202)
+colnames(tripdata_202203)
+colnames(tripdata_202204)
+colnames(tripdata_202205)
+```
+
+**Check the structure of the data in each column to make sure they align**
+```{r check data structure}
+str(tripdata_202106)
+str(tripdata_202107)
+str(tripdata_202108)
+str(tripdata_202109)
+str(tripdata_202110)
+str(tripdata_202111)
+str(tripdata_202112)
+str(tripdata_202201)
+str(tripdata_202202)
+str(tripdata_202203)
+str(tripdata_202204)
+str(tripdata_202205)
+```
+
+We can see that the data follows the same structure across the 12 months both in the naming of the columns and the data types that each of the column holds.
+
+
+### The Process Phase
+The data processing stage helps to rectify identified issues with the data to be used and also interact to get a feel of the data.\
+I will be using R for the analysis. The reason why I choose R for the analysis is because we have a lot of data and combining the data together is faster and simpler using a programming language. To ensure that the data is clean, I got myself familiar with the data and performed some operations as documented in the Deliverable section. After processing the data, I check over again to make sure the data is clean enough, making sure the data is correct, reliable and relevant to the business problem.\
+
+For the processing phase, each of the following activities were carried out.
+- Combine data sets to a single dataframe.
+- Rename columns for better readability.
+- Delete unnecessary columns.
+- Generate aggregate columns that can help bring insight to the analysis.
+- Perform some basic statistics to get familiar with the data.
+
+**Combine the 12 data sets into one**
+```{r combine data}
+combined_data <- bind_rows(tripdata_202106, tripdata_202107, tripdata_202108, tripdata_202109,
+                           tripdata_202110, tripdata_202111, tripdata_202112, tripdata_202201,
+                           tripdata_202202, tripdata_202203, tripdata_202204, tripdata_202205)
+colnames(combined_data)
+str(combined_data)
+```
+
+**Rename the columns for readability**
+```{r rename columns}
+combined_data <- combined_data %>%
+  rename(ride_type = rideable_type, 
+         start_time = started_at,
+         end_time = ended_at,
+         customer_type = member_casual)
+glimpse(combined_data)
+```
+
+**Remove unnecessary columns**
+```{r seive data set}
+combined_data <- combined_data %>%
+  select(-c(start_lat, start_lng, end_lat, end_lng))
+glimpse(combined_data)
+```
+
+**Generate new columns for better analysis and aggregation**
+```{r genereate new columns}
+combined_data[['start_time']] <- ymd_hms(combined_data[['start_time']])
+combined_data[['end_time']] <- ymd_hms(combined_data[['end_time']])
+str(combined_data)
+
+```
+
+```{r other columns}
+combined_data$date <- as.Date(combined_data$start_time)
+combined_data$month <- format(as.Date(combined_data$date), "%m")
+combined_data$day <- format(as.Date(combined_data$date), "%d")
+combined_data$year <- format(as.Date(combined_data$date), "%Y")
+combined_data$day_of_week <- format(as.Date(combined_data$date), "%A")
+
+combined_data$ride_length <- as.numeric(difftime(combined_data$end_time,combined_data$start_time))
+```
+
+**See an overview of the data**
+```{r data overview}
+dim(combined_data)
+summary(combined_data)
+length(unique(combined_data$customer_type))
+```
+
+After having a look at the data there were empty cells especially in the start_station column. There were also values with ride length less than 0.
+**Drop rows with empty value and ride_length less than 0**
+```{r missing coluns}
+nrow(combined_data[combined_data$start_station_name == "", ])
+
+combined_data_clean <- combined_data[!(combined_data$start_station_name == "" | combined_data$ride_length<0),]
+```
+
+**See an overview of the data**
+```{r see data}
+dim(combined_data_clean)
+glimpse(combined_data_clean)
+head(combined_data_clean)
+```
+
+
+### The Analyze Phase
+For the analyze phase we try to derive as much insights as we can to drive decision (mostly using descriptive analysis). We will be sorting, filtering, groups, and aggregating the date. Exploratory Data Analysis (EDA).
+
+**Check the summary of the ride_length column**
+```{r summarize column}
+summary(combined_data_clean$ride_length)
+# summarise(combined_data_clean, mean_rd = mean(ride_length), min_re = min(ride_length),
+          # median_rd = median(ride_length), max_rd = max(ride_length))
+```
+
+**Compare members and casual riders**
+```{r compare}
+aggregate(combined_data_clean$ride_length ~ combined_data_clean$customer_type, FUN = mean)
+aggregate(combined_data_clean$ride_length ~ combined_data_clean$customer_type, FUN = median)
+aggregate(combined_data_clean$ride_length ~ combined_data_clean$customer_type, FUN = max)
+aggregate(combined_data_clean$ride_length ~ combined_data_clean$customer_type, FUN = min)
+```
+
+**See the average ride time by each day for members vs casual users**
+```{r ride time by membership}
+combined_data_clean$day_of_week <- ordered(combined_data_clean$day_of_week, levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+combined_data_clean$month <- ordered(combined_data_clean$month, levels=c("06", "07", "08", "09", "10", "11", "12", "01", "02", "03", "04", "05"))
+
+aggregate(combined_data_clean$ride_length ~ combined_data_clean$customer_type + combined_data_clean$day_of_week, FUN = mean)
+```
+
+**Analyze ridership data by type and weekday**
+```{r data by mambership and weekday}
+combined_data_clean %>% 
+  mutate(weekday = wday(start_time, label = TRUE)) %>%  
+  group_by(customer_type, weekday) %>%  
+  summarise(number_of_rides = n(), average_duration = mean(ride_length)) %>% 
+  arrange(customer_type, weekday)
+```
+
+### Share
+In the share phase of the data analysis process, Visualization is made to make the analysis easily digestible by the stakeholders. Plots make it easier to see trends, and relationships that exist in the data.
+
+**Visualize the number of rides by rider type by weekday**
+```{r viz1, echo=FALSE}
+combined_data_clean %>% 
+  mutate(weekday = wday(start_time, label = TRUE)) %>% 
+  group_by(customer_type, weekday) %>% 
+  summarise(number_of_rides = n(), average_duration = mean(ride_length)) %>% 
+  arrange(customer_type, weekday)  %>% 
+  ggplot(aes(x = weekday, y = number_of_rides, fill = customer_type)) +
+  geom_col(position = "dodge")
+```
+
+**Visualize the number of rides by rider type by month**
+```{r viz2, echo=FALSE}
+combined_data_clean %>% 
+  group_by(customer_type, month) %>% 
+  summarise(number_of_rides = n(), average_duration = mean(ride_length)) %>% 
+  arrange(customer_type, month)  %>% 
+  ggplot(aes(x = month, y = number_of_rides, fill = customer_type)) +
+  geom_col(position = "dodge")
+```
+
+**Visualization for average duration by weekday**
+```{r viz3, echo=FALSE}
+combined_data_clean %>% 
+  mutate(weekday = wday(start_time, label = TRUE)) %>% 
+  group_by(customer_type, weekday) %>% 
+  summarise(number_of_rides = n(), average_duration = mean(ride_length)) %>% 
+  arrange(customer_type, weekday)  %>% 
+  ggplot(aes(x = weekday, y = average_duration, fill = customer_type)) +
+  geom_col(position = "dodge")
+```
+
+
+**Visualization for average duration by month**
+```{r viz4, echo=FALSE}
+combined_data_clean %>% 
+  group_by(customer_type, month) %>% 
+  summarise(number_of_rides = n(), average_duration = mean(ride_length)) %>% 
+  arrange(customer_type, month)  %>% 
+  ggplot(aes(x = month, y = average_duration, fill = customer_type)) +
+  geom_col(position = "dodge")
+```
+
+**Visualize the ride_type by number of trips**
+```{r viz5, echo=FALSE}
+combined_data_clean %>%
+  group_by(ride_type, customer_type) %>%
+  summarise(number_of_trips = n()) %>%  
+  ggplot(aes(x= ride_type, y=number_of_trips, fill= customer_type))+
+  geom_bar(stat='identity') +
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+  labs(title ="Ride type Vs. Number of trips")
+```
+
+### The Act Phase
+From the analysis and visualization produces, we can have the following takeaways to answer the business question: **How do annual members and casual riders use Cyclistic bikes differently?**.
+
+* Casual riders use the bikes for longer duration (per ride).
+* Asides from weekends (Saturdays and Sundays), Members use more of the service during the weekdays.
+* We also see that over the last course of year, most rides are by members and not casual riders.
+
+**Recommendations**
+- Make a plan to let go of docked bike and focus more on the electric and classic ride types.
+- Reduce the number of available bikes for casual users during the weekends or increase the on the go price for bikes during the weekend.
+- Cap the duration a casual user can make use of bikes.
+

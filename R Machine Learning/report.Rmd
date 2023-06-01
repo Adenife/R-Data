@@ -1,0 +1,486 @@
+---
+title: "Subscribing Customer Classification"
+author: "Name"
+date: '2023-03-20'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+## Introduction.
+You have been provided with marketing data from a bank that has been making phone calls to customers asking them to subscribe a product service.
+
+The object of this notebook is to create a system to predict whether an individual will subscribe to the new line of product. The bank will in turn use this system to target individuals who are more likely to subscribe to the new line of product.
+
+**Load required libraries**
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(ggplot2) 
+library(corrplot)
+library(gridExtra)
+
+library(caret)
+library(randomForest)
+library(party)
+
+require(tree)
+```
+
+## Exploratory Data Analysis
+This section of the notebook explores the data to find insights, patterns and correlations that can help make informed decision in the model selection and development.
+
+**Check and set working directory**
+```{r set directory}
+knitr::opts_chunk$set(echo = TRUE)
+
+getwd()
+setwd('C:/Users/oluwanifemi.aweda/Documents/Iremide-R')
+```
+
+**import data**
+```{r import data}
+knitr::opts_chunk$set(echo = TRUE)
+
+df <- read.csv(file ='train.csv')
+```
+
+### Basic Checks
+**Perform basic checks on the data**
+```{r glimpse data}
+knitr::opts_chunk$set(echo = TRUE)
+
+# see an overview of the data (glimpse is an alternative to str)
+# str(df)
+glimpse(df)
+```
+
+```{r view data}
+knitr::opts_chunk$set(echo = TRUE)
+
+# view the df in tabular form
+view(df)
+```
+
+
+```{r data dimension}
+knitr::opts_chunk$set(echo = TRUE)
+
+# check the dimension of the data
+dim(df)
+```
+
+```{r data summary}
+knitr::opts_chunk$set(echo = TRUE)
+
+# see a summary statistic of the data
+summary(df)
+```
+
+```{r data null}
+knitr::opts_chunk$set(echo = TRUE)
+
+# check for null values in the data
+colSums(is.na(df))
+```
+
+### Transform data
+```{r new data instance}
+knitr::opts_chunk$set(echo = TRUE)
+
+# create a new instance of the data
+df_clean = df
+```
+
+```{r datatype convert}
+knitr::opts_chunk$set(echo = TRUE)
+
+# convert columns to categorical according to the docs
+# job, marital, education, default, housing, loan, contact, day, month, poutcome
+df_clean <- df_clean %>%
+  mutate_at(vars(job, marital, education, default, housing, loan, contact, day, month, poutcome), as.factor)
+```
+
+```{r data check}
+knitr::opts_chunk$set(echo = TRUE)
+
+# check if the operation was successful
+glimpse(df_clean)
+```
+
+**Create new columns**
+```{r create columns}
+knitr::opts_chunk$set(echo = TRUE)
+
+# create age ranges
+df_clean$age_range <- cut(df_clean$age, breaks = c(0, 18, 30, 40, 50, 60, Inf), 
+                        labels = c("0-18yrs", "19-30yrs", "31-40yrs", "41-50yrs", "51-60yrs", "60+yrs"))
+
+# create call duration ranges
+df_clean$call_duration <- cut(df_clean$duration, breaks = c(0, 10, 20, 30, 40, 50, 60, Inf), 
+                                labels = c("0-10mins", "11-20mins", "21-30mins", "31-40mins", "41-50mins", "51-60mins", "1hr+"))
+
+
+df_clean <- df_clean %>%
+  mutate_at(vars(age_range, call_duration), as.factor)
+```
+
+### Analyze categorical variables
+```{r cat coluns}
+knitr::opts_chunk$set(echo = TRUE)
+
+# select categorical columns
+categorical_cols <- df_clean %>%
+  select_if(is.factor)
+```
+
+```{r val counts}
+knitr::opts_chunk$set(echo = TRUE)
+
+# see the number of unique values in each column of the data
+sapply(categorical_cols, function(x) if(is.factor(x)) nlevels(x) else length(unique(x)))
+```
+
+```{r age bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Get frequency table of age range
+age_table <- table(categorical_cols$age_range)
+
+# Create bar plot
+barplot(age_table, main = "Distribution of Categories", 
+        xlab = "Age", ylab = "Frequency")
+```
+
+```{r call duration bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Get frequency table of call_duration range
+call_duration_table <- table(categorical_cols$call_duration)
+
+# Create bar plot
+barplot(call_duration_table, main = "Distribution of Categories", 
+        xlab = "Call Duration", ylab = "Frequency")
+```
+
+```{r job bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Get frequency table of job range
+job_table <- table(categorical_cols$job)
+
+# Create bar plot
+barplot(job_table, main = "Distribution of Categories", 
+        xlab = "Job Type", ylab = "Frequency", las = 2)
+```
+
+```{r marital bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Get frequency table of marital range
+marital_table <- table(categorical_cols$marital)
+
+# Create bar plot
+barplot(marital_table, main = "Distribution of Categories", 
+        xlab = "Marital Status", ylab = "Frequency")
+```
+
+```{r education bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Get frequency table of education range
+education_table <- table(categorical_cols$education)
+
+# Create bar plot
+barplot(education_table, main = "Distribution of Categories", 
+        xlab = "Education Status", ylab = "Frequency")
+```
+
+```{r default bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Get frequency table of default range
+default_table <- table(categorical_cols$default)
+
+# Create bar plot
+barplot(default_table, main = "Distribution of Categories", 
+        xlab = "Default", ylab = "Frequency")
+```
+
+```{r housing bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Get frequency table of housing range
+housing_table <- table(categorical_cols$housing)
+
+# Create bar plot
+barplot(housing_table, main = "Distribution of Categories", 
+        xlab = "Housing", ylab = "Frequency")
+```
+
+```{r loan bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Get frequency table of loan range
+loan_table <- table(categorical_cols$loan)
+
+# Create bar plot
+barplot(loan_table, main = "Distribution of Categories", 
+        xlab = "Loan", ylab = "Frequency")
+```
+
+```{r contact bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Get frequency table of contact range
+contact_table <- table(categorical_cols$contact)
+
+# Create bar plot
+barplot(contact_table, main = "Distribution of Categories", 
+        xlab = "Contact", ylab = "Frequency")
+```
+
+```{r day bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Get frequency table of day range
+day_table <- table(categorical_cols$day)
+
+# Create bar plot
+barplot(day_table, main = "Distribution of Categories", 
+        xlab = "Day", ylab = "Frequency", las = 2)
+```
+
+```{r month bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# order month
+month_order <- c("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+categorical_cols$month <- factor(categorical_cols$month, levels = month_order)
+
+# Get frequency table of month range
+month_table <- table(categorical_cols$month)
+
+# Create bar plot
+barplot(month_table, main = "Distribution of Categories", 
+        xlab = "Month", ylab = "Frequency", 
+        las = 2)
+```
+
+```{r poutcome bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Get frequency table of poutcome range
+poutcome_table <- table(categorical_cols$poutcome)
+
+# Create bar plot
+barplot(poutcome_table, main = "Distribution of Categories", 
+        xlab = "Previous Outcome", ylab = "Frequency")
+```
+
+```{r all cat bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Filter categorical columns
+# categorical_plot <- names(categorical_cols)[sapply(categorical_cols, is.factor)]
+
+# Create bar plots for each categorical column
+# plot_list <- lapply(categorical_plot, function(col) {
+#   plot_data <- as.data.frame(table(categorical_cols[, col]))
+#   plot <- ggplot(plot_data, aes_string(x = names(plot_data)[1], y = names(plot_data)[2])) +
+#     geom_bar(stat = "identity") +
+#     ggtitle(col) +
+#     xlab(col) +
+#     ylab("Count") +
+#     theme(axis.text.x = element_text(angle = 45, hjust = 1))
+#   plot
+# })
+
+# grid.arrange(grobs = plot_list, ncol = 2)
+```
+
+
+### Analyze numerical variables
+```{r num coluns}
+knitr::opts_chunk$set(echo = TRUE)
+
+# select numerical columns
+numerical_cols <- df_clean %>%
+  select_if(is.numeric)
+```
+
+```{r age hist}
+knitr::opts_chunk$set(echo = TRUE)
+
+ggplot(numerical_cols, aes(x = age)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "white") +
+  labs(x = "Age Distribution", y = "Count") +
+  ggtitle("Distribution of Age")
+```
+
+```{r balance hist}
+knitr::opts_chunk$set(echo = TRUE)
+
+ggplot(numerical_cols, aes(x = balance)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "white") +
+  labs(x = "Age Distribution", y = "Count") +
+  ggtitle("Distribution of Balance")
+```
+
+```{r duration hist}
+knitr::opts_chunk$set(echo = TRUE)
+
+ggplot(numerical_cols, aes(x = duration)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "white") +
+  labs(x = "Call Duration Distribution", y = "Count") +
+  ggtitle("Distribution of Duration")
+```
+
+```{r campaign hist}
+knitr::opts_chunk$set(echo = TRUE)
+
+ggplot(numerical_cols, aes(x = campaign)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "white") +
+  labs(x = "Campaign Distribution", y = "Count") +
+  ggtitle("Distribution of Campaign")
+```
+
+```{r pdays hist}
+knitr::opts_chunk$set(echo = TRUE)
+
+ggplot(numerical_cols, aes(x = pdays)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "white") +
+  labs(x = "Previous Day Contact Distribution", y = "Count") +
+  ggtitle("Distribution of Previous Day Contact") +
+  scale_x_continuous(limits = c(0, 60))
+```
+
+```{r previous hist}
+knitr::opts_chunk$set(echo = TRUE)
+
+ggplot(numerical_cols, aes(x = previous)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "white") +
+  labs(x = "Previous Campaigh Contact Distribution", y = "Count") +
+  ggtitle("Distribution of Previous Campaigh Contact")
+```
+
+```{r all num bar}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Filter numerical columns
+# numerical_plot <- names(numerical_cols)[sapply(numerical_cols, is.numeric)]
+
+# Create list of histogram plots for each numerical column
+# plot_list <- lapply(numerical_plot, function(col) {
+#   plot <- ggplot(numerical_cols, aes_string(x = col)) +
+#     geom_histogram(binwidth = 1, fill = "blue", color = "white") +
+#     ggtitle(col) +
+#     xlab(col) +
+#     ylab("Count")
+#   plot
+# })
+
+# Arrange plots in a grid
+# grid.arrange(grobs = plot_list, ncol = 2)
+```
+
+```{r correlation plot}
+knitr::opts_chunk$set(echo = TRUE)
+
+# create correlation for numeric variables
+
+# Calculate correlation matrix
+cor_matrix <- cor(numerical_cols)
+
+# Create correlation plot
+corrplot(cor_matrix, method = "color")
+```
+
+
+## Model
+This section of the notebook experiments with different categorical models to predict the outcome of th variable
+
+**Create data for model**
+```{r select columns}
+knitr::opts_chunk$set(echo = TRUE)
+
+model_df <- df_clean[, c("job", "marital","education", "default", "balance", "housing", "loan", "contact", "campaign", "pdays", "previous", "poutcome", "age_range", "call_duration", "y")]
+
+view(model_df)
+```
+
+```{r see proportion of the outcome class}
+knitr::opts_chunk$set(echo = TRUE)
+
+prop.table(table(model_df$y))
+```
+
+
+```{r tree model}
+knitr::opts_chunk$set(echo = TRUE)
+
+# fit decision tree
+tree.model_df = tree(y~., data=model_df)
+
+# see tree summary
+summary(tree.model_df)
+```
+
+```{r decision tree summary}
+knitr::opts_chunk$set(echo = TRUE)
+
+# see tree summary
+tree.model_df
+```
+
+```{r split data}
+knitr::opts_chunk$set(echo = TRUE)
+
+# split data
+train <- sample(1:nrow(model_df), 0.7 * nrow(model_df))
+training <- model_df[train,]
+testing <- model_df[-train,]
+
+dim(training); dim(testing)
+```
+
+```{r decision tree train}
+knitr::opts_chunk$set(echo = TRUE)
+
+train <- sample(1:nrow(model_df), 22154)
+tree.model_df <- tree(y~., model_df, subset=train)
+plot(tree.model_df)
+text(tree.model_df, pretty=0)
+tree.model_df
+```
+
+```{r decision tree predict}
+knitr::opts_chunk$set(echo = TRUE)
+
+tree.pred = predict(tree.model_df, tree.model_df[-train,], type="vector")
+```
+
+```{r decision tree summary}
+knitr::opts_chunk$set(echo = TRUE)
+
+tree.model <- ctree(y~., training)
+plot(tree)
+```
+
+```{r decision tree summary}
+knitr::opts_chunk$set(echo = TRUE)
+
+tree.pred <- predict(tree.model, newdata=testing)
+```
+
+```{r decision tree summary}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Create a confusion matrix
+cm <- table(tree.pred, testing$y)
+
+# Print the confusion matrix
+print(cm)
+```
